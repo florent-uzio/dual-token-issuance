@@ -127,7 +127,7 @@
   <body>
     <h1>Dual Token Issuance</h1>
     <p>
-      It will create 7 test accounts: <br />
+      It will create 7 test accounts on <b>Devnet</b>: <br />
       - issuerUsdb: the issuer of the USDB token <br />
       - issuerUsdbAllow: the issuer of the USDBAllow token <br />
       - minterOne: a minter of the USDB token that is allowed to hold USDBAllow
@@ -241,6 +241,7 @@
         logMessage(
           `test_account created with address: ${wallet.address} and seed: ${wallet.seed}`
         );
+        logMessage("");
         return wallet;
       }
 
@@ -298,13 +299,12 @@
           usdb_settings = {
             TransactionType: "AccountSet",
             Account: issuerUsdb.address,
-            SetFlag: accountSetFlags.asfDefaultRipple,
-            Flags: accountSetFlags.tfDisallowXRP,
+            SetFlag: accountSetFlags.asfDepositAuth,
           };
           logMessage("Enable deposit authorization on usdb issuer account");
           await submit_trx(issuerUsdb, usdb_settings);
 
-          // Enable rippling on usdb usdbAllow issuer and disallow XRP
+          // Enable rippling and disallow XRP on usdb usdbAllow issuer
           let usdbAllowSettings = {
             TransactionType: "AccountSet",
             Account: issuerUsdbAllow.address,
