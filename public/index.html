@@ -6,13 +6,17 @@
   <body>
     <h1>Dual Token Issuance</h1>
     <p>Click the button below to launch the setup script on the XRPL devnet.</p>
-    <!-- <p>
-      It will create 3 test accounts (issuer, bad actor, good actor), configure
-      the accounts, create a frozen trustline to bad actor from issuer,
-      trustlines to issuer, fund the good actor and do payments between the
-      actors.
-    </p> -->
-
+    <p>
+      It will create 5 test accounts: <br />
+      - issuerUsdb: the issuer of the USDB token <br />
+      - issuerUsdbAllow: the issuer of the USDBAllow token <br />
+      - minterOne: a minter of the USDB token that is allowed to hold USDBAllow
+      <br />
+      - minterTwo: a minter of the USDB token that is allowed to hold USDBAllow
+      <br />
+      - burnerOne: a burner of the USDB token that is authorized to burn USDB by
+      sending it back to the USDB issuer
+    </p>
     <input type="submit" id="myButton" value="Launch Setup" onclick="setup()" />
     <p id="status"></p>
     <p id="log"></p>
