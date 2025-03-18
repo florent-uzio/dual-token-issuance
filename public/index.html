@@ -319,32 +319,30 @@
           );
           await submit_trx(issuerUsdbAllow, usdbAllowSettings);
 
-          // Enable Require Auth on usdb usdbAllow issuer
+          // Enable Require Auth on usdbAllow issuer
           usdbAllowSettings = {
             TransactionType: "AccountSet",
             Account: issuerUsdbAllow.address,
             SetFlag: accountSetFlags.asfRequireAuth,
           };
-          logMessage("Enable Require Auth on usdb usdbAllow issuer");
+          logMessage("Enable Require Auth on usdbAllow issuer");
           await submit_trx(issuerUsdbAllow, usdbAllowSettings);
 
-          // Enable Allow Trust Line Clawback on usdb usdbAllow issuer
+          // Enable Allow Trust Line Clawback on usdbAllow issuer
           usdbAllowSettings = {
             TransactionType: "AccountSet",
             Account: issuerUsdbAllow.address,
             SetFlag: accountSetFlags.asfAllowTrustLineClawback,
           };
-          logMessage(
-            "Enable Allow Trust Line Clawback on usdb usdbAllow issuer"
-          );
+          logMessage("Enable Allow Trust Line Clawback on usdbAllow issuer");
           await submit_trx(issuerUsdbAllow, usdbAllowSettings);
 
-          // Create Trustline from minterOne and minterTwo to issuer usdbAllow
+          // Create Trustline from minterOne to issuer usdbAllow
           const minterOneTrustline = {
             TransactionType: "TrustSet",
             Account: minterOne.address,
             LimitAmount: {
-              currency: USDB_TOKEN,
+              currency: USDB_ALLOW_TOKEN,
               value: TRUSTLINE_AMOUNT,
               issuer: issuerUsdbAllow.address,
             },
@@ -358,7 +356,7 @@
             TransactionType: "TrustSet",
             Account: minterTwo.address,
             LimitAmount: {
-              currency: USDB_TOKEN,
+              currency: USDB_ALLOW_TOKEN,
               value: TRUSTLINE_AMOUNT,
               issuer: issuerUsdbAllow.address,
             },
@@ -493,6 +491,56 @@
             "Create DEX offer from issuer usdb to sell USDB and buy USDBAllow"
           );
           await submit_trx(issuerUsdb, createDexOffer);
+
+          // Mint USDBAllow to minterOne
+          const amount = "1000000";
+          let mintUsdbAllow = {
+            TransactionType: "Payment",
+            Account: issuerUsdbAllow.address,
+            Destination: minterOne.address,
+            Amount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: amount,
+              issuer: issuerUsdbAllow.address,
+            },
+          };
+          logMessage(`Mint ${amount} USDBAllow to minterOne`);
+          await submit_trx(issuerUsdbAllow, mintUsdbAllow);
+
+          // Mint USDBAllow to minterTwo
+          mintUsdbAllow = {
+            TransactionType: "Payment",
+            Account: issuerUsdbAllow.address,
+            Destination: minterTwo.address,
+            Amount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: amount,
+              issuer: issuerUsdbAllow.address,
+            },
+          };
+          logMessage(`Mint ${amount} USDBAllow to minterTwo`);
+          await submit_trx(issuerUsdbAllow, mintUsdbAllow);
+
+          // Create a payment from minterOne to holderOne
+          const payment = {
+            TransactionType: "Payment",
+            Account: minterOne.address,
+            Destination: holderOne.address,
+            Amount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: "10",
+              issuer: issuerUsdbAllow.address,
+            },
+            SendMax: {
+              currency: USDB_TOKEN,
+              value: "10",
+              issuer: issuerUsdb.address,
+            },
+          };
+          logMessage(
+            `Create a payment from minterOne to holderOne using the DEX`
+          );
+          await submit_trx(minterOne, payment);
 
           let output = [
             '<div class="account-section">',
