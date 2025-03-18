@@ -527,14 +527,14 @@
             Account: minterOne.address,
             Destination: holderOne.address,
             Amount: {
-              currency: USDB_ALLOW_TOKEN,
-              value: "10",
-              issuer: issuerUsdbAllow.address,
-            },
-            SendMax: {
               currency: USDB_TOKEN,
               value: "10",
               issuer: issuerUsdb.address,
+            },
+            SendMax: {
+              currency: USDB_ALLOW_TOKEN,
+              value: "10",
+              issuer: issuerUsdbAllow.address,
             },
           };
           logMessage(
