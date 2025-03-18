@@ -50,7 +50,7 @@
 
       const client = new xrpl.Client(xrpl_server);
 
-      const xrplExplorerUrl = "https://devnet.xrpl.org/";
+      const xrplExplorerUrl = "https://devnet.xrpl.org";
 
       // Define the tokens
       const USDB_TOKEN = convert_currency_to_hex("USDB");
@@ -96,7 +96,7 @@
           wallet,
         });
         logMessage(
-          `Transaction result: ${tx.result.meta.TransactionResult} with hash: <a href="${xrplExplorerUrl}transactions/${tx.result.hash}" target="_blank">${tx.result.hash}</a>`
+          `Transaction result: ${tx.result.meta.TransactionResult} with hash: <a href="${xrplExplorerUrl}/transactions/${tx.result.hash}" target="_blank">${tx.result.hash}</a>`
         );
       }
 
@@ -306,19 +306,19 @@
 
           let output = [
             "Issuer USDB",
-            `<a href="${xrplExplorerUrl}${issuerUsdb.address}" target="_blank">${issuerUsdb.address}</a>`,
+            `<a href="${xrplExplorerUrl}/accounts/${issuerUsdb.address}" target="_blank">${issuerUsdb.address}</a>`,
             issuerUsdb.seed + "<br>",
             "Issuer USDB Allow",
-            `<a href="${xrplExplorerUrl}${issuerUsdbAllow.address}" target="_blank">${issuerUsdbAllow.address}</a>`,
+            `<a href="${xrplExplorerUrl}/accounts/${issuerUsdbAllow.address}" target="_blank">${issuerUsdbAllow.address}</a>`,
             issuerUsdbAllow.seed + "<br>",
             "Minter One",
-            `<a href="${xrplExplorerUrl}${minterOne.address}" target="_blank">${minterOne.address}</a>`,
+            `<a href="${xrplExplorerUrl}/accounts/${minterOne.address}" target="_blank">${minterOne.address}</a>`,
             minterOne.seed + "<br>",
             "Minter Two",
-            `<a href="${xrplExplorerUrl}${minterTwo.address}" target="_blank">${minterTwo.address}</a>`,
+            `<a href="${xrplExplorerUrl}/accounts/${minterTwo.address}" target="_blank">${minterTwo.address}</a>`,
             minterTwo.seed + "<br>",
             "Burner One",
-            `<a href="${xrplExplorerUrl}${burnerOne.address}" target="_blank">${burnerOne.address}</a>`,
+            `<a href="${xrplExplorerUrl}/accounts/${burnerOne.address}" target="_blank">${burnerOne.address}</a>`,
             burnerOne.seed + "<br>",
             "done",
           ];
