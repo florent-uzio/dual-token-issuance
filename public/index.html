@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Dual Token Issuance</title>
+  </head>
+  <body>
+    <h1>Dual Token Issuance</h1>
+    <p>Click the button below to launch the setup script on the XRPL devnet.</p>
+    <!-- <p>
+      It will create 3 test accounts (issuer, bad actor, good actor), configure
+      the accounts, create a frozen trustline to bad actor from issuer,
+      trustlines to issuer, fund the good actor and do payments between the
+      actors.
+    </p> -->
+
+    <input type="submit" id="myButton" value="Launch Setup" onclick="setup()" />
+    <p id="status"></p>
+    <p id="log"></p>
+    <p id="output"></p>
+
+    <script src="https://unpkg.com/xrpl/build/xrpl-latest-min.js"></script>
+    <script>
+      // Function to log messages to both the console and the HTML page
+      function logMessage(message) {
+        console.log(message);
+        const logElement = document.getElementById("log");
+        logElement.innerHTML += "<br>";
+        logElement.innerHTML += message;
+        // Add an extra line break if the message contains "Transaction result"
+        if (message.includes("Transaction result")) {
+          logElement.innerHTML += "<br>";
+        }
+      }
+
+      // Function to convert a non standard currency to hexadecimal
+      const convert_currency_to_hex = (currency) => {
+        if (currency.length > 3) {
+          // Convert string to array of characters, pad with zeros, and join back
+          return Array.from(currency)
+            .map((char) => char.charCodeAt(0).toString(16).padStart(2, "0"))
+            .join("")
+            .padEnd(40, "0")
+            .toUpperCase();
+        }
+        return currency;
+      };
+
+      // Define XRPL server to connect to
+      const xrpl_server = "wss://s.devnet.rippletest.net:51233";
+
+      const client = new xrpl.Client(xrpl_server);
+
+      const xrplExplorerUrl = "https://devnet.xrpl.org/";
+
+      // Define the tokens
+      const USDB_TOKEN = convert_currency_to_hex("USDB");
+      const USDB_ALLOW_TOKEN = convert_currency_to_hex("USDBAllow");
+
+      // Define the amount of the trustline
+      const TRUSTLINE_AMOUNT = "9999999999999999e80";
+
+      // Map of account set flags
+      const accountSetFlags = {
+        tfRequireDestTag: 65536, // 0x00010000
+        tfOptionalDestTag: 131072, // 0x00020000
+        tfRequireAuth: 262144, // 0x00040000
+        tfOptionalAuth: 524288, // 0x00080000
+        tfDisallowXRP: 1048576, // 0x00100000
+        tfAllowXRP: 2097152, // 0x00200000
+
+        asfRequireDest: 1, // Used for SetFlag / ClearFlag
+        asfRequireAuth: 2, // Used for SetFlag / ClearFlag
+        asfDisallowXRP: 3, // Used for SetFlag / ClearFlag
+        asfAccountTxnID: 5, // Track recent transaction ID
+        asfDefaultRipple: 8, // Enable rippling
+        asfDepositAuth: 9, // Enable deposit authorization
+        asfAllowTrustLineClawback: 16, // Allow clawback of issued tokens
+      };
+
+      // Map of trust set flags
+      const trustSetFlags = {
+        tfSetfAuth: 65536,
+        tfSetNoRipple: 131072, // Enable the No Ripple flag, which blocks rippling between two trust lines of the same currency if this flag is enabled on both.
+      };
+
+      // Function to access XRPL API methods
+      async function xrpl_api_request(payload) {
+        const response = await client.request(payload);
+        return response;
+      }
+
+      // Function to submit a transaction
+      async function submit_trx(wallet, txn) {
+        const tx = await client.submitAndWait(txn, {
+          autofill: true,
+          wallet,
+        });
+        logMessage(
+          `Transaction result: ${tx.result.meta.TransactionResult} with hash: <a href="${xrplExplorerUrl}transactions/${tx.result.hash}" target="_blank">${tx.result.hash}</a>`
+        );
+      }
+
+      // Function to create a test wallet
+      async function create_test_wallet() {
+        const { wallet } = await client.fundWallet();
+        logMessage(
+          `test_account created with address: ${wallet.address} and seed: ${wallet.seed}`
+        );
+        return wallet;
+      }
+
+      // Function for the script
+      async function setup() {
+        document.getElementById("myButton").disabled = true;
+        document.getElementById("status").innerText = "Working...";
+
+        try {
+          // Connect to the XRPL server
+          await client.connect();
+
+          const [issuerUsdb, minterOne, minterTwo, issuerUsdbAllow, burnerOne] =
+            await Promise.all([
+              create_test_wallet(),
+              create_test_wallet(),
+              create_test_wallet(),
+              create_test_wallet(),
+              create_test_wallet(),
+            ]);
+
+          // Enable rippling and disallow XRP on usdb issuer account
+          let usdb_settings = {
+            TransactionType: "AccountSet",
+            Account: issuerUsdb.address,
+            SetFlag: accountSetFlags.asfDefaultRipple,
+            Flags: accountSetFlags.tfDisallowXRP,
+          };
+          logMessage("Enable rippling and disallow XRP on usdb issuer account");
+          await submit_trx(issuerUsdb, usdb_settings);
+
+          // Enable deposit authorization on usdb issuer account
+          usdb_settings = {
+            TransactionType: "AccountSet",
+            Account: issuerUsdb.address,
+            SetFlag: accountSetFlags.asfDefaultRipple,
+            Flags: accountSetFlags.tfDisallowXRP,
+          };
+          logMessage("Enable deposit authorization on usdb issuer account");
+          await submit_trx(issuerUsdb, usdb_settings);
+
+          // Enable rippling on usdb usdbAllow issuer and disallow XRP
+          let usdbAllowSettings = {
+            TransactionType: "AccountSet",
+            Account: issuerUsdbAllow.address,
+            SetFlag: accountSetFlags.asfDefaultRipple,
+            Flags: accountSetFlags.tfDisallowXRP,
+          };
+          logMessage("Enable rippling on usdbAllow issuer and disallow XRP");
+          await submit_trx(issuerUsdbAllow, usdbAllowSettings);
+
+          // Enable Require Auth on usdb usdbAllow issuer
+          usdbAllowSettings = {
+            TransactionType: "AccountSet",
+            Account: issuerUsdbAllow.address,
+            SetFlag: accountSetFlags.asfRequireAuth,
+          };
+          logMessage("Enable Require Auth on usdb usdbAllow issuer");
+          await submit_trx(issuerUsdbAllow, usdbAllowSettings);
+
+          // Enable Allow Trust Line Clawback on usdb usdbAllow issuer
+          usdbAllowSettings = {
+            TransactionType: "AccountSet",
+            Account: issuerUsdbAllow.address,
+            SetFlag: accountSetFlags.asfAllowTrustLineClawback,
+          };
+          logMessage(
+            "Enable Allow Trust Line Clawback on usdb usdbAllow issuer"
+          );
+          await submit_trx(issuerUsdbAllow, usdbAllowSettings);
+
+          // Create Trustline from minterOne and minterTwo to issuer usdbAllow
+          const minterOneTrustline = {
+            TransactionType: "TrustSet",
+            Account: minterOne.address,
+            LimitAmount: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdbAllow.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create Trustline from minterOne to issuerUsdbAllow");
+          await submit_trx(minterOne, minterOneTrustline);
+
+          // Create Trustline from minterTwo to issuerUsdbAllow
+          const minterTwoTrustline = {
+            TransactionType: "TrustSet",
+            Account: minterTwo.address,
+            LimitAmount: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdbAllow.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create Trustline from minterTwo to issuerUsdbAllow");
+          await submit_trx(minterTwo, minterTwoTrustline);
+
+          // Authorize minterOne and minterTwo to hold usdbAllow
+          const authorizeMinterOne = {
+            TransactionType: "TrustSet",
+            Account: issuerUsdbAllow.address,
+            LimitAmount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: "0",
+              issuer: minterOne.address,
+            },
+            Flags: trustSetFlags.tfSetfAuth,
+          };
+          logMessage("Authorize minterOne to hold usdbAllow");
+          await submit_trx(issuerUsdbAllow, authorizeMinterOne);
+
+          // Authorize minterTwo to hold usdbAllow
+          const authorizeMinterTwo = {
+            TransactionType: "TrustSet",
+            Account: issuerUsdbAllow.address,
+            LimitAmount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: "0",
+              issuer: minterTwo.address,
+            },
+            Flags: trustSetFlags.tfSetfAuth,
+          };
+          logMessage("Authorize minterTwo to hold usdbAllow");
+          await submit_trx(issuerUsdbAllow, authorizeMinterTwo);
+
+          // Authorize usdb issuer to hold usdbAllow
+          const authorizeIssuer = {
+            TransactionType: "TrustSet",
+            Account: issuerUsdbAllow.address,
+            LimitAmount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: "0",
+              issuer: issuerUsdb.address,
+            },
+            Flags: trustSetFlags.tfSetfAuth,
+          };
+          logMessage("Authorize usdb issuer to hold usdbAllow");
+          await submit_trx(issuerUsdbAllow, authorizeIssuer);
+
+          // Create Trustline from issuer usdb to usdbAllow issuer
+          const usdbAllowTrustline = {
+            TransactionType: "TrustSet",
+            Account: issuerUsdb.address,
+            LimitAmount: {
+              currency: USDB_ALLOW_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdbAllow.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create Trustline from issuer usdb to usdbAllow issuer");
+          await submit_trx(issuerUsdb, usdbAllowTrustline);
+
+          // Create trustline from burnerOne to issuer usdb
+          const burnerOneTrustline = {
+            TransactionType: "TrustSet",
+            Account: burnerOne.address,
+            LimitAmount: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdb.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create trustline from burnerOne to issuer usdb");
+          await submit_trx(burnerOne, burnerOneTrustline);
+
+          // Authorize burnerOne with deposit authorization
+          const authorizeBurnerOne = {
+            TransactionType: "DepositPreauth",
+            Account: issuerUsdb.address,
+            Authorize: burnerOne.address,
+          };
+          logMessage("Authorize burnerOne with deposit authorization");
+          await submit_trx(issuerUsdb, authorizeBurnerOne);
+
+          // Create DEX offer from issuer usdb to sell USDB and buy USDBAllow
+          const createDexOffer = {
+            TransactionType: "OfferCreate",
+            Account: issuerUsdb.address,
+            TakerGets: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdb.address,
+            },
+            TakerPays: {
+              currency: USDB_ALLOW_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdbAllow.address,
+            },
+          };
+          logMessage(
+            "Create DEX offer from issuer usdb to sell USDB and buy USDBAllow"
+          );
+          await submit_trx(issuerUsdb, createDexOffer);
+
+          let output = [
+            "Issuer USDB",
+            `<a href="${xrplExplorerUrl}${issuerUsdb.address}" target="_blank">${issuerUsdb.address}</a>`,
+            issuerUsdb.seed + "<br>",
+            "Issuer USDB Allow",
+            `<a href="${xrplExplorerUrl}${issuerUsdbAllow.address}" target="_blank">${issuerUsdbAllow.address}</a>`,
+            issuerUsdbAllow.seed + "<br>",
+            "Minter One",
+            `<a href="${xrplExplorerUrl}${minterOne.address}" target="_blank">${minterOne.address}</a>`,
+            minterOne.seed + "<br>",
+            "Minter Two",
+            `<a href="${xrplExplorerUrl}${minterTwo.address}" target="_blank">${minterTwo.address}</a>`,
+            minterTwo.seed + "<br>",
+            "Burner One",
+            `<a href="${xrplExplorerUrl}${burnerOne.address}" target="_blank">${burnerOne.address}</a>`,
+            burnerOne.seed + "<br>",
+            "done",
+          ];
+
+          document.getElementById("output").innerHTML = output.join("<br>");
+        } catch (error) {
+          logMessage(`Error: ${error}`);
+        } finally {
+          document.getElementById("myButton").disabled = false;
+          document.getElementById("status").innerText = "";
+
+          // Disconnect from the XRPL server
+          await client.disconnect();
+        }
+
+        return output;
+      }
+    </script>
+  </body>
+</html>
