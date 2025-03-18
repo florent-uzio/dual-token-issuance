@@ -2,12 +2,117 @@
 <html>
   <head>
     <title>Dual Token Issuance</title>
+    <style>
+      :root {
+        --xrpl-blue: #23292f;
+        --xrpl-green: #2d9f6d;
+        --xrpl-light-green: #3bc9a7;
+        --xrpl-gray: #6b7280;
+        --xrpl-light-gray: #f3f4f6;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        line-height: 1.6;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        color: var(--xrpl-blue);
+      }
+
+      h1 {
+        color: var(--xrpl-blue);
+        border-bottom: 2px solid var(--xrpl-green);
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+      }
+
+      #myButton {
+        background-color: var(--xrpl-green);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      #myButton:hover {
+        background-color: var(--xrpl-light-green);
+      }
+
+      #myButton:disabled {
+        background-color: var(--xrpl-gray);
+        cursor: not-allowed;
+      }
+
+      #status {
+        color: var(--xrpl-green);
+        font-weight: bold;
+        margin: 10px 0;
+      }
+
+      #log {
+        background-color: var(--xrpl-light-gray);
+        padding: 15px;
+        border-radius: 6px;
+        margin: 20px 0;
+        font-family: monospace;
+        white-space: pre-wrap;
+      }
+
+      #log a {
+        color: var(--xrpl-green);
+        text-decoration: none;
+      }
+
+      #log a:hover {
+        text-decoration: underline;
+      }
+
+      #output {
+        background-color: var(--xrpl-light-gray);
+        padding: 20px;
+        border-radius: 6px;
+        margin-top: 20px;
+        font-family: monospace;
+      }
+
+      #output a {
+        color: var(--xrpl-green);
+        text-decoration: none;
+        display: block;
+        margin: 5px 0;
+      }
+
+      #output a:hover {
+        text-decoration: underline;
+      }
+
+      .account-section {
+        margin: 15px 0;
+        padding: 10px;
+        border-left: 3px solid var(--xrpl-green);
+        background-color: white;
+      }
+
+      .account-label {
+        font-weight: bold;
+        color: var(--xrpl-blue);
+      }
+
+      .account-seed {
+        color: var(--xrpl-gray);
+        font-size: 0.9em;
+      }
+    </style>
   </head>
   <body>
     <h1>Dual Token Issuance</h1>
-    <p>Click the button below to launch the setup script on the XRPL devnet.</p>
     <p>
-      It will create 5 test accounts: <br />
+      It will create 7 test accounts: <br />
       - issuerUsdb: the issuer of the USDB token <br />
       - issuerUsdbAllow: the issuer of the USDBAllow token <br />
       - minterOne: a minter of the USDB token that is allowed to hold USDBAllow
@@ -15,8 +120,11 @@
       - minterTwo: a minter of the USDB token that is allowed to hold USDBAllow
       <br />
       - burnerOne: a burner of the USDB token that is authorized to burn USDB by
-      sending it back to the USDB issuer
+      sending it back to the USDB issuer <br />
+      - holderOne: a holder of the USDB token <br />
+      - holderTwo: a holder of the USDB token
     </p>
+    <p>Click the button below to launch the setup script on the XRPL devnet.</p>
     <input type="submit" id="myButton" value="Launch Setup" onclick="setup()" />
     <p id="status"></p>
     <p id="log"></p>
@@ -122,14 +230,22 @@
           // Connect to the XRPL server
           await client.connect();
 
-          const [issuerUsdb, minterOne, minterTwo, issuerUsdbAllow, burnerOne] =
-            await Promise.all([
-              create_test_wallet(),
-              create_test_wallet(),
-              create_test_wallet(),
-              create_test_wallet(),
-              create_test_wallet(),
-            ]);
+          const [
+            issuerUsdb,
+            minterOne,
+            minterTwo,
+            issuerUsdbAllow,
+            burnerOne,
+            holderOne,
+            holderTwo,
+          ] = await Promise.all([
+            create_test_wallet(),
+            create_test_wallet(),
+            create_test_wallet(),
+            create_test_wallet(),
+            create_test_wallet(),
+            create_test_wallet(),
+          ]);
 
           // Enable rippling and disallow XRP on usdb issuer account
           let usdb_settings = {
@@ -209,7 +325,7 @@
           logMessage("Create Trustline from minterTwo to issuerUsdbAllow");
           await submit_trx(minterTwo, minterTwoTrustline);
 
-          // Authorize minterOne and minterTwo to hold usdbAllow
+          // Authorize minterOne to hold usdbAllow
           const authorizeMinterOne = {
             TransactionType: "TrustSet",
             Account: issuerUsdbAllow.address,
@@ -288,6 +404,34 @@
           logMessage("Authorize burnerOne with deposit authorization");
           await submit_trx(issuerUsdb, authorizeBurnerOne);
 
+          // Create Trustline from holderOne to issuer usdb
+          const holderOneTrustline = {
+            TransactionType: "TrustSet",
+            Account: holderOne.address,
+            LimitAmount: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdb.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create Trustline from holderOne to issuer usdb");
+          await submit_trx(holderOne, holderOneTrustline);
+
+          // Create Trustline from holderTwo to issuer usdb
+          const holderTwoTrustline = {
+            TransactionType: "TrustSet",
+            Account: holderTwo.address,
+            LimitAmount: {
+              currency: USDB_TOKEN,
+              value: TRUSTLINE_AMOUNT,
+              issuer: issuerUsdb.address,
+            },
+            Flags: trustSetFlags.tfSetNoRipple,
+          };
+          logMessage("Create Trustline from holderTwo to issuer usdb");
+          await submit_trx(holderTwo, holderTwoTrustline);
+
           // Create DEX offer from issuer usdb to sell USDB and buy USDBAllow
           const createDexOffer = {
             TransactionType: "OfferCreate",
@@ -309,22 +453,41 @@
           await submit_trx(issuerUsdb, createDexOffer);
 
           let output = [
-            "Issuer USDB",
+            '<div class="account-section">',
+            '<div class="account-label">Issuer USDB</div>',
             `<a href="${xrplExplorerUrl}/accounts/${issuerUsdb.address}" target="_blank">${issuerUsdb.address}</a>`,
-            issuerUsdb.seed + "<br>",
-            "Issuer USDB Allow",
+            `<div class="account-seed">${issuerUsdb.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Issuer USDB Allow</div>',
             `<a href="${xrplExplorerUrl}/accounts/${issuerUsdbAllow.address}" target="_blank">${issuerUsdbAllow.address}</a>`,
-            issuerUsdbAllow.seed + "<br>",
-            "Minter One",
+            `<div class="account-seed">${issuerUsdbAllow.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Minter One</div>',
             `<a href="${xrplExplorerUrl}/accounts/${minterOne.address}" target="_blank">${minterOne.address}</a>`,
-            minterOne.seed + "<br>",
-            "Minter Two",
+            `<div class="account-seed">${minterOne.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Minter Two</div>',
             `<a href="${xrplExplorerUrl}/accounts/${minterTwo.address}" target="_blank">${minterTwo.address}</a>`,
-            minterTwo.seed + "<br>",
-            "Burner One",
+            `<div class="account-seed">${minterTwo.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Burner One</div>',
             `<a href="${xrplExplorerUrl}/accounts/${burnerOne.address}" target="_blank">${burnerOne.address}</a>`,
-            burnerOne.seed + "<br>",
-            "done",
+            `<div class="account-seed">${burnerOne.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Holder One</div>',
+            `<a href="${xrplExplorerUrl}/accounts/${holderOne.address}" target="_blank">${holderOne.address}</a>`,
+            `<div class="account-seed">${holderOne.seed}</div>`,
+            "</div>",
+            '<div class="account-section">',
+            '<div class="account-label">Holder Two</div>',
+            `<a href="${xrplExplorerUrl}/accounts/${holderTwo.address}" target="_blank">${holderTwo.address}</a>`,
+            `<div class="account-seed">${holderTwo.seed}</div>`,
+            "</div>",
           ];
 
           document.getElementById("output").innerHTML = output.join("<br>");
