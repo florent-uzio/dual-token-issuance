@@ -107,6 +107,21 @@
         color: var(--xrpl-gray);
         font-size: 0.9em;
       }
+
+      .input-group {
+        margin-bottom: 10px;
+      }
+
+      .input-group label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .input-group input {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+      }
     </style>
   </head>
   <body>
@@ -124,6 +139,14 @@
       - holderOne: a holder of the USDB token <br />
       - holderTwo: a holder of the USDB token
     </p>
+    <div class="input-group">
+      <label for="usdbTickSize">USDB TickSize (0 for default):</label>
+      <input type="number" id="usdbTickSize" value="0" min="0" max="15" />
+    </div>
+    <div class="input-group">
+      <label for="usdbAllowTickSize">USDBAllow TickSize (0 for default):</label>
+      <input type="number" id="usdbAllowTickSize" value="0" min="0" max="15" />
+    </div>
     <p>Click the button below to launch the setup script on the XRPL devnet.</p>
     <input type="submit" id="myButton" value="Launch Setup" onclick="setup()" />
     <p id="status"></p>
@@ -245,16 +268,30 @@
             create_test_wallet(),
             create_test_wallet(),
             create_test_wallet(),
+            create_test_wallet(),
           ]);
 
-          // Enable rippling and disallow XRP on usdb issuer account
+          // Get TickSize values
+          const usdbTickSize = parseInt(
+            document.getElementById("usdbTickSize").value
+          );
+          const usdbAllowTickSize = parseInt(
+            document.getElementById("usdbAllowTickSize").value
+          );
+
+          // Enable rippling, disallow XRP and set TickSize if greater than 0 on usdb issuer account
           let usdb_settings = {
             TransactionType: "AccountSet",
             Account: issuerUsdb.address,
             SetFlag: accountSetFlags.asfDefaultRipple,
             Flags: accountSetFlags.tfDisallowXRP,
           };
-          logMessage("Enable rippling and disallow XRP on usdb issuer account");
+          if (usdbTickSize >= 3 || usdbTickSize <= 15) {
+            usdb_settings.TickSize = usdbTickSize;
+          }
+          logMessage(
+            "Enable rippling, disallow XRP and set TickSize (if between 3 and 15) on usdb issuer account"
+          );
           await submit_trx(issuerUsdb, usdb_settings);
 
           // Enable deposit authorization on usdb issuer account
@@ -274,7 +311,12 @@
             SetFlag: accountSetFlags.asfDefaultRipple,
             Flags: accountSetFlags.tfDisallowXRP,
           };
-          logMessage("Enable rippling on usdbAllow issuer and disallow XRP");
+          if (usdbAllowTickSize >= 3 || usdbAllowTickSize <= 15) {
+            usdbAllowSettings.TickSize = usdbAllowTickSize;
+          }
+          logMessage(
+            "Enable rippling, disallow XRP and set TickSize (if between 3 and 15) on usdbAllow issuer"
+          );
           await submit_trx(issuerUsdbAllow, usdbAllowSettings);
 
           // Enable Require Auth on usdb usdbAllow issuer
